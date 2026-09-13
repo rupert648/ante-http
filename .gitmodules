@@ -1,0 +1,3 @@
+[submodule "deps/antest"]
+	path = deps/antest
+	url = https://github.com/rupert648/antest
