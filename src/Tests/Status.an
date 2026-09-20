@@ -1,0 +1,40 @@
+import Std.Throw.Throw
+import Std.String.eq_string
+import Antest.Antest.AssertionError, Tests, tassert, register_test
+import AnteHttp.Http.Status.Status, cast_status_u16, to_text
+
+export register_status_tests
+
+assert_status_code (status: Status) (expected: U16): Unit can Throw AssertionError, Fs =
+    actual: U16 = cast status
+    tassert (actual == expected) (Some "status code did not match")
+
+assert_status_text (status: Status) (expected: String): Unit can Throw AssertionError, Fs =
+    tassert (to_text status == expected) (Some "status text did not match")
+
+test_ok_status (): Unit can Throw AssertionError, Fs =
+    assert_status_code Status.Ok 200u16
+    assert_status_text Status.Ok "200 OK"
+
+test_not_found_status (): Unit can Throw AssertionError, Fs =
+    assert_status_code Status.NotFound 404u16
+    assert_status_text Status.NotFound "404 Not Found"
+
+test_bad_request_status (): Unit can Throw AssertionError, Fs =
+    assert_status_code Status.BadRequest 400u16
+    assert_status_text Status.BadRequest "400 Bad Request"
+
+test_forbidden_status (): Unit can Throw AssertionError, Fs =
+    assert_status_code Status.Forbidden 403u16
+    assert_status_text Status.Forbidden "403 Forbidden"
+
+test_server_error_status (): Unit can Throw AssertionError, Fs =
+    assert_status_code Status.ServerError 500u16
+    assert_status_text Status.ServerError "500 Internal Server Error"
+
+register_status_tests (): Unit can Tests =
+    register_test "formats OK status" test_ok_status
+    register_test "formats not-found status" test_not_found_status
+    register_test "formats bad-request status" test_bad_request_status
+    register_test "formats forbidden status" test_forbidden_status
+    register_test "formats server-error status" test_server_error_status

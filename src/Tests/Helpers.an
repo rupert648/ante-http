@@ -1,0 +1,67 @@
+import Std.Throw.Throw
+import Std.Fail.try
+import Std.String.eq_string
+import Antest.Antest.AssertionError, Tests, tassert, register_test
+import AnteHttp.Http.Helpers.find_char_from, slice
+
+export register_helper_tests
+
+assert_find_char (input: String) (target: Char) (start: Usz) (expected: Usz): Unit can Throw AssertionError, Fs =
+    match try (fn () -> find_char_from input target start)
+    | Some result -> tassert (result == expected) None
+    | None -> tassert false (Some "expected character lookup to succeed")
+
+assert_char_missing (input: String) (target: Char) (start: Usz): Unit can Throw AssertionError, Fs =
+    match try (fn () -> find_char_from input target start)
+    | None -> ()
+    | Some _ -> tassert false (Some "expected character lookup to fail")
+
+test_find_char_from (): Unit can Throw AssertionError, Fs =
+    assert_find_char "rupert" 'p' 0usz 2usz
+
+test_find_char_at_start (): Unit can Throw AssertionError, Fs =
+    assert_find_char "rupert" 'r' 0usz 0usz
+
+test_find_char_at_end (): Unit can Throw AssertionError, Fs =
+    assert_find_char "rupert" 't' 0usz 5usz
+
+test_find_repeated_char_from_offset (): Unit can Throw AssertionError, Fs =
+    assert_find_char "banana" 'a' 2usz 3usz
+
+test_find_char_at_exact_offset (): Unit can Throw AssertionError, Fs =
+    assert_find_char "banana" 'n' 2usz 2usz
+
+test_missing_char_fails (): Unit can Throw AssertionError, Fs =
+    assert_char_missing "rupert" 'z' 0usz
+
+test_skipped_char_fails (): Unit can Throw AssertionError, Fs =
+    assert_char_missing "rupert" 'u' 2usz
+
+test_empty_string_fails (): Unit can Throw AssertionError, Fs =
+    assert_char_missing "" 'a' 0usz
+
+test_start_at_length_fails (): Unit can Throw AssertionError, Fs =
+    assert_char_missing "rupert" 't' 6usz
+
+test_slice_middle (): Unit can Throw AssertionError, Fs =
+    tassert (slice "abcdef" 1usz 4usz == "bcd") (Some "middle slice did not match")
+
+test_slice_full_string (): Unit can Throw AssertionError, Fs =
+    tassert (slice "abcdef" 0usz 6usz == "abcdef") (Some "full slice did not match")
+
+test_slice_invalid_range_is_empty (): Unit can Throw AssertionError, Fs =
+    tassert (slice "abcdef" 6usz 6usz == "") (Some "invalid slice should be empty")
+
+register_helper_tests (): Unit can Tests =
+    register_test "finds character" test_find_char_from
+    register_test "finds character at start" test_find_char_at_start
+    register_test "finds character at end" test_find_char_at_end
+    register_test "finds repeated character from offset" test_find_repeated_char_from_offset
+    register_test "finds character at exact offset" test_find_char_at_exact_offset
+    register_test "missing character fails" test_missing_char_fails
+    register_test "skipped character fails" test_skipped_char_fails
+    register_test "empty string fails" test_empty_string_fails
+    register_test "start at string length fails" test_start_at_length_fails
+    register_test "slices middle of string" test_slice_middle
+    register_test "slices full string" test_slice_full_string
+    register_test "invalid slice is empty" test_slice_invalid_range_is_empty

@@ -1,0 +1,65 @@
+import Std.Throw.Throw
+import Std.Fail.try
+import Std.String.eq_string
+import Std.Vec.len
+import Antest.Antest.AssertionError, Tests, tassert, register_test
+import AnteHttp.Http.Method.Method, eq_method
+import AnteHttp.Http.Request.Request
+import AnteHttp.Http.Parser.parse_request
+
+export register_request_tests
+
+parse_request_safely (input: String): Maybe Request can Fs =
+    abort_on_panic do
+      try (fn () -> parse_request input)
+
+assert_request
+    (input: String)
+    (expected_method: Method)
+    (expected_path: String)
+    (expected_body: String)
+    (expected_header_count: Usz): Unit can Throw AssertionError, Fs =
+    match parse_request_safely input
+    | Some (Request method path headers body) ->
+        tassert (method == expected_method) (Some "request method did not match")
+        tassert (path == expected_path) (Some "request path did not match")
+        tassert (body == expected_body) (Some "request body did not match")
+        tassert (headers.len () == expected_header_count) (Some "request header count did not match")
+    | None -> tassert false (Some "expected request parsing to succeed")
+
+assert_invalid_request (input: String): Unit can Throw AssertionError, Fs =
+    match parse_request_safely input
+    | None -> ()
+    | Some _ -> tassert false (Some "expected request parsing to fail")
+
+test_get_request (): Unit can Throw AssertionError, Fs =
+    assert_request
+        "GET /hello HTTP/1.1\r\nHost: localhost:8080\r\nAccept: text/plain\r\n\r\n"
+        Method.Get
+        "/hello"
+        ""
+        2usz
+
+test_post_request_with_body (): Unit can Throw AssertionError, Fs =
+    assert_request
+        "POST /submit HTTP/1.1\r\nContent-Length: 5\r\n\r\nhello"
+        Method.Post
+        "/submit"
+        "hello"
+        1usz
+
+test_request_without_headers (): Unit can Throw AssertionError, Fs =
+    assert_request "GET / HTTP/1.1\r\n\r\n" Method.Get "/" "" 0usz
+
+test_unsupported_method_fails (): Unit can Throw AssertionError, Fs =
+    assert_invalid_request "DELETE / HTTP/1.1\r\n\r\n"
+
+test_missing_headers_terminator_fails (): Unit can Throw AssertionError, Fs =
+    assert_invalid_request "GET / HTTP/1.1\r\nHost: localhost\r\n"
+
+register_request_tests (): Unit can Tests =
+    register_test "parses GET request" test_get_request
+    register_test "parses POST request body" test_post_request_with_body
+    register_test "parses request without headers" test_request_without_headers
+    register_test "rejects unsupported method" test_unsupported_method_fails
+    register_test "rejects missing header terminator" test_missing_headers_terminator_fails

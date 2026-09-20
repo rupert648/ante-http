@@ -1,101 +1,14 @@
-import Std.Throw.Throw
-import Std.Fail.try
-import Std.String.eq_string
-import Antest.Antest.tassert, AssertionError, run_tests, register_test
-import AnteHttp.Http.Helpers.find_char_from
-import AnteHttp.Http.Header.Header
-import AnteHttp.Http.Parser.parse_header
-
-assert_header (input: String) (expected_name: String) (expected_value: String): Unit can Throw AssertionError, Fs =
-    match try (fn () -> parse_header input)
-    | Some (Header name value) ->
-        tassert (name == expected_name) (Some "header name did not match")
-        tassert (value == expected_value) (Some "header value did not match")
-    | None -> tassert false (Some "expected header parsing to succeed")
-
-assert_invalid_header (input: String): Unit can Throw AssertionError, Fs =
-    match try (fn () -> parse_header input)
-    | None -> ()
-    | Some _ -> tassert false (Some "expected header parsing to fail")
-
-assert_find_char (input: String) (target: Char) (start: Usz) (expected: Usz): Unit can Throw AssertionError, Fs =
-    match try (fn () -> find_char_from input target start)
-    | Some result -> tassert (result == expected) None
-    | None -> tassert false (Some "expected character lookup to succeed")
-
-assert_char_missing (input: String) (target: Char) (start: Usz): Unit can Throw AssertionError, Fs =
-    result = try (fn () -> find_char_from input target start)
-    match result
-    | None -> ()
-    | Some _ -> tassert false (Some "expected character lookup to fail")
-
-test_find_char_from (): Unit can Throw AssertionError, Fs =
-    assert_find_char "rupert" 'p' 0usz 2usz
-
-test_find_char_at_start (): Unit can Throw AssertionError, Fs =
-    assert_find_char "rupert" 'r' 0usz 0usz
-
-test_find_char_at_end (): Unit can Throw AssertionError, Fs =
-    assert_find_char "rupert" 't' 0usz 5usz
-
-test_find_repeated_char_from_offset (): Unit can Throw AssertionError, Fs =
-    assert_find_char "banana" 'a' 2usz 3usz
-
-test_find_char_at_exact_offset (): Unit can Throw AssertionError, Fs =
-    assert_find_char "banana" 'n' 2usz 2usz
-
-test_missing_char_fails (): Unit can Throw AssertionError, Fs =
-    assert_char_missing "rupert" 'z' 0usz
-
-test_skipped_char_fails (): Unit can Throw AssertionError, Fs =
-    assert_char_missing "rupert" 'u' 2usz
-
-test_empty_string_fails (): Unit can Throw AssertionError, Fs =
-    assert_char_missing "" 'a' 0usz
-
-test_start_at_length_fails (): Unit can Throw AssertionError, Fs =
-    assert_char_missing "rupert" 't' 6usz
-
-test_header_with_space (): Unit can Throw AssertionError, Fs =
-    assert_header "Content-Type: text/plain" "Content-Type" "text/plain"
-
-test_header_without_space (): Unit can Throw AssertionError, Fs =
-    assert_header "Content-Type:text/plain" "Content-Type" "text/plain"
-
-test_header_value_with_colon (): Unit can Throw AssertionError, Fs =
-    assert_header "Host: localhost:8080" "Host" "localhost:8080"
-
-test_header_empty_value (): Unit can Throw AssertionError, Fs =
-    assert_header "X-Empty:" "X-Empty" ""
-
-test_header_trims_value (): Unit can Throw AssertionError, Fs =
-    assert_header "X-Test:\t value \t" "X-Test" "value"
-
-test_header_without_colon_fails (): Unit can Throw AssertionError, Fs =
-    assert_invalid_header "Content-Type text/plain"
-
-test_header_without_name_fails (): Unit can Throw AssertionError, Fs =
-    assert_invalid_header ": text/plain"
-
-test_header_space_before_colon_fails (): Unit can Throw AssertionError, Fs =
-    assert_invalid_header "Content-Type : text/plain"
+import Antest.Antest.run_tests
+import AnteHttp.Tests.Helpers.register_helper_tests
+import AnteHttp.Tests.Header.register_header_tests
+import AnteHttp.Tests.Request.register_request_tests
+import AnteHttp.Tests.Method.register_method_tests
+import AnteHttp.Tests.Status.register_status_tests
 
 main () =
     run_tests do
-        register_test "finds character" test_find_char_from
-        register_test "finds character at start" test_find_char_at_start
-        register_test "finds character at end" test_find_char_at_end
-        register_test "finds repeated character from offset" test_find_repeated_char_from_offset
-        register_test "finds character at exact offset" test_find_char_at_exact_offset
-        register_test "missing character fails" test_missing_char_fails
-        register_test "skipped character fails" test_skipped_char_fails
-        register_test "empty string fails" test_empty_string_fails
-        register_test "start at string length fails" test_start_at_length_fails
-        register_test "parses header with space" test_header_with_space
-        register_test "parses header without space" test_header_without_space
-        register_test "preserves colons in header value" test_header_value_with_colon
-        register_test "parses empty header value" test_header_empty_value
-        register_test "trims header value" test_header_trims_value
-        register_test "rejects header without colon" test_header_without_colon_fails
-        register_test "rejects header without name" test_header_without_name_fails
-        register_test "rejects whitespace before colon" test_header_space_before_colon_fails
+        register_helper_tests ()
+        register_header_tests ()
+        register_request_tests ()
+        register_method_tests ()
+        register_status_tests ()

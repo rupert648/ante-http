@@ -1,4 +1,4 @@
-export Status, Status.Ok, Status.ServerError, Status.Forbidden,
+export Status, Status.Ok, Status.ServerError, Status.NotFound, Status.Forbidden,
     Status.BadRequest, cast_status_u16, to_text
 
 type Status =
@@ -24,4 +24,3 @@ to_text (status: Status): String =
     | Status.ServerError -> "500 Internal Server Error"
     | Status.Forbidden -> "403 Forbidden"
     | Status.BadRequest -> "400 Bad Request"
-

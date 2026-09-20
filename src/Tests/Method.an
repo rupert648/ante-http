@@ -1,0 +1,22 @@
+import Std.Throw.Throw
+import Std.String.eq_string
+import Antest.Antest.AssertionError, Tests, tassert, register_test
+import AnteHttp.Http.Method.Method, eq_method, cast_method_string
+
+export register_method_tests
+
+test_get_method_text (): Unit can Throw AssertionError, Fs =
+    text: String = cast Method.Get
+    tassert (text == "GET") (Some "GET method text did not match")
+
+test_post_method_text (): Unit can Throw AssertionError, Fs =
+    text: String = cast Method.Post
+    tassert (text == "POST") (Some "POST method text did not match")
+
+test_methods_are_distinct (): Unit can Throw AssertionError, Fs =
+    tassert (not (Method.Get == Method.Post)) (Some "GET and POST should differ")
+
+register_method_tests (): Unit can Tests =
+    register_test "formats GET method" test_get_method_text
+    register_test "formats POST method" test_post_method_text
+    register_test "distinguishes HTTP methods" test_methods_are_distinct

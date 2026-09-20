@@ -1,7 +1,7 @@
 import Std.Hash.Hash, hash_string
 
 export Method, Method.Get, Method.Post, eq_method,
-    hash_method, copy_method
+    hash_method, copy_method, cast_method_string
 
 type Method =
     | Get
