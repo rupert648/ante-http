@@ -1,7 +1,7 @@
 import Std.HashMap.HashMap, get
 import Std.Fail.Fail, or_panic, fail
 import Std.C.malloc, free
-import Std.Throw.Throw, throw
+import Std.Throw.Throw, throw, exit_on_throw
 import AnteHttp.Socket.Socket, SocketError, print_socket_error, tcp_ipv4,
     set_reuse_address, bind_any_ipv4, listen, accept, receive, send, close
 import AnteHttp.Http.Parser.parse_request
@@ -35,7 +35,7 @@ add_route
   (var app: App)
   (path: Path)
   (method: Method)
-  (route_handler: RouteHandler): App can Fs =
+  (route_handler: RouteHandler): App can Panic =
     key: RouteKey = (path, method)
     previous: Maybe RouteHandler =
         HashMap.insert (mut app.routes) key route_handler
@@ -50,7 +50,7 @@ get_handler_for_req
     get app.routes route_key
 
 
-start_server (port: U16): Socket can IO, Throw SocketError =
+start_server (port: U16): Socket can IO, Print, Throw SocketError =
   server_socket = tcp_ipv4 ()
   set_reuse_address server_socket
   bind_any_ipv4 server_socket port
@@ -62,7 +62,7 @@ start_server (port: U16): Socket can IO, Throw SocketError =
   server_socket
 
 
-accept_retrying (server_socket: ref Socket): Socket can IO =
+accept_retrying (server_socket: ref Socket): Socket can IO, Print =
     handler h for throw error ->
         println error
         accept_retrying server_socket
@@ -89,7 +89,7 @@ handle_request
 
 serve_internal
   (app: App)
-  (port: U16): Unit can IO, Throw SocketError =
+  (port: U16): Unit can IO, Print, Panic, Throw SocketError =
     socket = start_server port
     socket_ref = ref socket
 
@@ -120,7 +120,6 @@ serve_internal
 serve
   (app: App)
   (port: U16): Unit can IO =
-    handler h for throw error ->
-      println error
-      panic "http server failed"
-    serve_internal app port
+    print_to_stdout do
+      abort_on_panic do
+        serve_internal app port ~> exit_on_throw

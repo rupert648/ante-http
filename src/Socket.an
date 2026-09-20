@@ -27,7 +27,7 @@ type SocketError =
     operation: SocketOperation
     code: I32
 
-impl print_socket_error: Print SocketError with
+impl print_socket_error: Display SocketError pure with
     print error =
         print "socket operation `"
         print (cast (deref error.operation) : String)

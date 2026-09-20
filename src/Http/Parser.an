@@ -48,7 +48,7 @@ find_headers_end (text: ref String): Usz can Fail =
 
     fail ()
 
-parse_headers (text: ref String) (request_line_end: Usz) (headers_end: Usz): Vec String can Fail, Fs =
+parse_headers (text: ref String) (request_line_end: Usz) (headers_end: Usz): Vec String can Fail, Panic =
     var headers = Vec.empty ()
     var header_start = request_line_end + 2
 
@@ -59,7 +59,7 @@ parse_headers (text: ref String) (request_line_end: Usz) (headers_end: Usz): Vec
 
     headers
 
-parse_request (raw: String): Request can Fail, Fs =
+parse_request (raw: String): Request can Fail, Panic =
     method_end = find_char_from raw ' ' 0usz
     path_start = method_end + 1
     path_end = find_char_from raw ' ' path_start

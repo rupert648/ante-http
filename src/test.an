@@ -1,11 +1,12 @@
 import Std.Throw.Throw
-import Std.Fail.try, or_panic
+import Std.Fail.try
 import Antest.Antest.tassert, AssertionError, run_tests, register_test
 import AnteHttp.Http.Helpers.find_char_from
 
 assert_find_char (input: String) (target: Char) (start: Usz) (expected: Usz): Unit can Throw AssertionError, Fs =
-    result = or_panic (fn () -> find_char_from input target start) "expected character"
-    tassert (result == expected) None
+    match try (fn () -> find_char_from input target start)
+    | Some result -> tassert (result == expected) None
+    | None -> tassert false (Some "expected character lookup to succeed")
 
 assert_char_missing (input: String) (target: Char) (start: Usz): Unit can Throw AssertionError, Fs =
     result = try (fn () -> find_char_from input target start)
