@@ -1,0 +1,26 @@
+import AnteHttp.Http.Status.Status, to_text
+
+export Response, to_bytes 
+
+// TODO: response headers
+type Response =
+    status: Status
+    body: String
+
+
+to_bytes (res: Response): (Ptr U8, Usz) =
+    status_text = to_text res.status
+    
+    response = "HTTP/1.1 " ++ status_text
+                ++"\r\n"
+                ++ "Content-Type: text/plain\r\n"
+                ++ "Connection: close\r\n"
+                ++ "\r\n"
+                ++ res.body
+
+    length = Usz response.length
+    bytes = transmute response.data : Ptr U8
+
+    bytes, length
+
+    

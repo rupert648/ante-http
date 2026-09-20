@@ -1,0 +1,30 @@
+import Std.Hash.Hash, hash_string
+
+export Method, Method.Get, Method.Post, eq_method,
+    hash_method, copy_method
+
+type Method =
+    | Get
+    | Post
+
+impl copy_method: Copy Method with
+    (.*) = deref
+
+
+impl cast_method_string: Cast Method String pure with
+    cast meth =
+        match meth
+        | Get -> "GET"
+        | Post -> "POST"
+
+impl eq_method: Eq Method pure with
+    (==) left right =
+        match deref left, deref right
+        | Method.Get, Method.Get -> true
+        | Method.Post, Method.Post -> true
+        | _ -> false
+
+impl hash_method: Hash Method with
+    hash meth =
+        stringified: String = cast meth
+        Hash.hash stringified

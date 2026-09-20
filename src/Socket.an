@@ -1,18 +1,8 @@
 import Std.Throw.Throw, throw
 
 export Socket, SocketError, SocketOperation, cast_socket_operation_string,
-    print_socket_error, SocketAddressIpv4,
-    address_family_ipv4, socket_type_stream,
-    socket_level, reuse_address_option, any_address, host_to_network_u16,
-    network_to_host_u16,
-    tcp_ipv4, any_ipv4, set_reuse_address, bind, listen, accept, receive,
-    send, close
-
-address_family_ipv4: I32 = 2
-socket_type_stream: I32 = 1
-socket_level: I32 = 0xffff
-reuse_address_option: I32 = 0x0004
-any_address: U32 = 0
+    print_socket_error, tcp_ipv4, set_reuse_address, bind_any_ipv4, listen,
+    accept, receive, send, close
 
 type Socket =
     descriptor: I32
@@ -45,85 +35,49 @@ impl print_socket_error: Print SocketError with
         print error.code
         ()
 
-// This is the Darwin/macOS sockaddr_in layout.
-type SocketAddressIpv4 =
-    length: U8
-    family: U8
-    port: U16
-    address: U32
-    padding_1: U32
-    padding_2: U32
-
-
-c_socket: fn I32 I32 I32 -> I32 can Net = extern "socket"
-c_setsockopt: fn I32 I32 I32 (Ptr U8) U32 -> I32 can Net = extern "setsockopt"
-c_bind: fn I32 (Ptr U8) U32 -> I32 can Net = extern "bind"
-c_listen: fn I32 I32 -> I32 can Net = extern "listen"
-c_accept: fn I32 (Ptr U8) (Ptr U32) -> I32 can Net = extern "accept"
-c_recv: fn I32 (Ptr U8) Usz I32 -> Isz can Net = extern "recv"
-c_send: fn I32 (Ptr U8) Usz I32 -> Isz can Net = extern "send"
-c_close: fn I32 -> I32 can Net = extern "close"
-c_htons: fn U16 -> U16 = extern "htons"
-c_ntohs: fn U16 -> U16 = extern "ntohs"
-c_errno_location: fn Unit -> Ptr I32 = extern "__error"
-
-to_ptr: fn (ref a) -> Ptr a = transmute
+c_tcp_ipv4: fn Unit -> I32 can Net = extern "ante_socket_tcp_ipv4"
+c_set_reuse_address: fn I32 -> I32 can Net = extern "ante_socket_set_reuse_address"
+c_bind_any_ipv4: fn I32 U16 -> I32 can Net = extern "ante_socket_bind_any_ipv4"
+c_listen: fn I32 I32 -> I32 can Net = extern "ante_socket_listen"
+c_accept: fn I32 -> I32 can Net = extern "ante_socket_accept"
+c_receive: fn I32 (Ptr U8) Usz -> Isz can Net = extern "ante_socket_receive"
+c_send: fn I32 (Ptr U8) Usz -> Isz can Net = extern "ante_socket_send"
+c_close: fn I32 -> I32 can Net = extern "ante_socket_close"
+c_errno: fn Unit -> I32 = extern "ante_socket_errno"
 
 throw_socket_error (operation: SocketOperation): Never can Throw SocketError =
-    code = deref_ptr (c_errno_location ())
-    throw (SocketError operation code)
-
-host_to_network_u16 (value: U16): U16 =
-    c_htons value
-
-network_to_host_u16 (value: U16): U16 =
-    c_ntohs value
+    throw (SocketError operation (c_errno ()))
 
 tcp_ipv4 (): Socket can Net, Throw SocketError =
-    socket = Socket (c_socket address_family_ipv4 socket_type_stream 0)
+    socket = Socket (c_tcp_ipv4 ())
     if socket.descriptor < 0 then throw_socket_error SocketOperation.Create
     socket
 
-any_ipv4 (port: U16): SocketAddressIpv4 =
-    SocketAddressIpv4
-        16u8
-        2u8
-        (host_to_network_u16 port)
-        any_address
-        0u32
-        0u32
-
 set_reuse_address (socket: ref Socket): I32 can Net, Throw SocketError =
-    enabled = 1i32
-    res = c_setsockopt
-        socket.descriptor
-        socket_level
-        reuse_address_option
-        (transmute (to_ptr enabled))
-        4u32
-    if res < 0 then throw_socket_error SocketOperation.SetReuseAddress
-    res
+    result = c_set_reuse_address socket.descriptor
+    if result < 0 then throw_socket_error SocketOperation.SetReuseAddress
+    result
 
-bind (socket: ref Socket) (address: ref SocketAddressIpv4): I32 can Net, Throw SocketError =
-    res = c_bind socket.descriptor (transmute address) 16u32
-    if res < 0 then throw_socket_error SocketOperation.Bind
-    res
+bind_any_ipv4 (socket: ref Socket) (port: U16): I32 can Net, Throw SocketError =
+    result = c_bind_any_ipv4 socket.descriptor port
+    if result < 0 then throw_socket_error SocketOperation.Bind
+    result
 
 listen (socket: ref Socket) (backlog: I32): I32 can Net, Throw SocketError =
-    res = c_listen socket.descriptor backlog
-    if res < 0 then throw_socket_error SocketOperation.Listen
-    res
+    result = c_listen socket.descriptor backlog
+    if result < 0 then throw_socket_error SocketOperation.Listen
+    result
 
 accept (socket: ref Socket): Socket can Net, Throw SocketError =
-    res = Socket (c_accept socket.descriptor (null ()) (null ()))
-    if res.descriptor < 0 then throw_socket_error SocketOperation.Accept
-    res
+    result = Socket (c_accept socket.descriptor)
+    if result.descriptor < 0 then throw_socket_error SocketOperation.Accept
+    result
 
 receive (socket: ref Socket) (buffer: Ptr U8) (length: Usz): Isz can Net =
-    c_recv socket.descriptor buffer length 0
+    c_receive socket.descriptor buffer length
 
 send (socket: ref Socket) (buffer: Ptr U8) (length: Usz): Isz can Net =
-    c_send socket.descriptor buffer length 0
+    c_send socket.descriptor buffer length
 
 close (socket: ref Socket): I32 can Net =
     c_close socket.descriptor

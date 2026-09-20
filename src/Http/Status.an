@@ -1,0 +1,27 @@
+export Status, Status.Ok, Status.ServerError, Status.Forbidden,
+    Status.BadRequest, cast_status_u16, to_text
+
+type Status =
+    | Ok
+    | ServerError
+    | NotFound
+    | Forbidden
+    | BadRequest
+
+impl cast_status_u16: Cast Status U16 pure with
+    cast status =
+        match status
+        | Status.Ok -> 200u16
+        | Status.NotFound -> 404u16
+        | Status.ServerError -> 500u16
+        | Status.Forbidden -> 403u16
+        | Status.BadRequest -> 400u16
+
+to_text (status: Status): String =
+    match status
+    | Status.Ok -> "200 OK"
+    | Status.NotFound -> "404 Not Found"
+    | Status.ServerError -> "500 Internal Server Error"
+    | Status.Forbidden -> "403 Forbidden"
+    | Status.BadRequest -> "400 Bad Request"
+

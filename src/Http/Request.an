@@ -1,0 +1,11 @@
+import AnteHttp.Http.Method.Method
+import Std.Vec.Vec
+
+export Request
+
+type Request =
+    method: Method
+    path: String
+    // TODO: this will be a hashmap once we parse the header contents
+    headers: Vec String
+    body: String

@@ -1,0 +1,126 @@
+import Std.HashMap.HashMap, get
+import Std.Fail.Fail, or_panic, fail
+import Std.C.malloc, free
+import Std.Throw.Throw, throw
+import AnteHttp.Socket.Socket, SocketError, print_socket_error, tcp_ipv4,
+    set_reuse_address, bind_any_ipv4, listen, accept, receive, send, close
+import AnteHttp.Http.Parser.parse_request
+import Std.Hash.hash_pair, hash_string
+import Std.String.eq_string
+import AnteHttp.Http.Request.Request
+import AnteHttp.Http.Status.Status 
+import AnteHttp.Http.Method.Method, eq_method, hash_method, copy_method
+import AnteHttp.Http.Response.Response, to_bytes
+
+export App, App.new, add_route, serve
+
+// TODO: response can be narrowed as contains the full request as it stands
+// TODO: support effects here
+type RouteHandler = fn Request -> Response 
+
+impl copy_route_handler: Copy RouteHandler with
+    (.*) = deref
+
+// will include params etc later
+type Path = String
+type RouteKey = (Path, Method)
+
+type App =
+    routes: HashMap (Path, Method) RouteHandler
+
+App.new (): App =
+    App (HashMap.empty ())
+
+add_route
+  (var app: App)
+  (path: Path)
+  (method: Method)
+  (route_handler: RouteHandler): App can Fs =
+    key: RouteKey = (path, method)
+    previous: Maybe RouteHandler =
+        HashMap.insert (mut app.routes) key route_handler
+
+    ignore previous
+    app
+
+get_handler_for_req
+  (app: ref App)
+  (req: ref Request): RouteHandler can Fail =
+    route_key: RouteKey = (clone req.path, req.method.*)
+    get app.routes route_key
+
+
+start_server (port: U16): Socket can IO, Throw SocketError =
+  server_socket = tcp_ipv4 ()
+  set_reuse_address server_socket
+  bind_any_ipv4 server_socket port
+  listen server_socket 128
+  print "listening on http://localhost:"
+  print port
+  println ""
+
+  server_socket
+
+
+accept_retrying (server_socket: ref Socket): Socket can IO =
+    handler h for throw error ->
+        println error
+        accept_retrying server_socket
+    accept server_socket
+
+
+handle_request
+  (app: ref App)
+  (request: Request)
+  (client_socket: ref Socket): Unit can IO =
+    send_res (res: Response): Unit can IO =
+      response_bytes, length = to_bytes res
+      _ = send client_socket response_bytes length
+    
+    handler h for fail () ->
+      res = Response Status.NotFound "Not Found :(("
+      send_res res
+
+    req_handler = get_handler_for_req app request 
+    res = req_handler request
+
+    send_res res
+
+
+serve_internal
+  (app: App)
+  (port: U16): Unit can IO, Throw SocketError =
+    socket = start_server port
+    socket_ref = ref socket
+
+    while true do
+        client_socket = accept_retrying socket_ref
+
+        // we can neaten up this API for sure
+        buffer: Ptr U8 = malloc 65536
+        bytes_read = receive client_socket buffer 65536
+
+        if bytes_read > 0 then
+            // TODO: bleh
+            request_length = U32 (Usz (I64 bytes_read))
+
+            raw_request = String.from_parts (transmute buffer : Ptr Char) request_length
+
+            request =
+                // TODO: no panic here 
+                parse_request raw_request ~> or_panic "failed to parse http request :("
+
+            handle_request app request client_socket
+        else
+            free buffer
+
+        _ = close client_socket
+        ()
+
+serve
+  (app: App)
+  (port: U16): Unit can IO =
+    handler h for throw error ->
+      println error
+      panic "http server failed"
+    serve_internal app port

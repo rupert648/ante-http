@@ -1,0 +1,17 @@
+import Std.Fail.Fail, fail
+import Std.String.substr
+
+export find_char_from, slice
+
+slice (text: ref String) (start: Usz) (end: Usz): String =
+  substr (clone text) start end
+
+find_char_from (text: ref String) (target: Char) (start: Usz): Usz can Fail =
+  var index = start
+  while index < Usz text.length do
+    if text.data.[index] == target then
+      return index
+
+    index += 1
+
+  fail ()
