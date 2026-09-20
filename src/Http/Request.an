@@ -1,4 +1,5 @@
 import AnteHttp.Http.Method.Method
+import AnteHttp.Http.Header.Header
 import Std.Vec.Vec
 
 export Request
@@ -6,6 +7,5 @@ export Request
 type Request =
     method: Method
     path: String
-    // TODO: this will be a hashmap once we parse the header contents
-    headers: Vec String
+    headers: Vec Header
     body: String

@@ -1,5 +1,5 @@
 import Std.HashMap.HashMap, get
-import Std.Fail.Fail, or_panic, fail
+import Std.Fail.Fail, try, fail
 import Std.C.malloc, free
 import Std.Throw.Throw, throw, exit_on_throw
 import AnteHttp.Socket.Socket, SocketError, print_socket_error, tcp_ipv4,
@@ -14,7 +14,6 @@ import AnteHttp.Http.Response.Response, to_bytes
 
 export App, App.new, add_route, serve
 
-// TODO: response can be narrowed as contains the full request as it stands
 // TODO: support effects here
 type RouteHandler = fn Request -> Response 
 
@@ -68,23 +67,24 @@ accept_retrying (server_socket: ref Socket): Socket can IO, Print =
         accept_retrying server_socket
     accept server_socket
 
+send_res (client_socket: ref Socket) (res: Response): Unit can IO =
+  response_bytes, length = to_bytes res
+  _ = send client_socket response_bytes length
+
 
 handle_request
   (app: ref App)
   (request: Request)
   (client_socket: ref Socket): Unit can IO =
-    send_res (res: Response): Unit can IO =
-      response_bytes, length = to_bytes res
-      _ = send client_socket response_bytes length
     
     handler h for fail () ->
       res = Response Status.NotFound "Not Found :(("
-      send_res res
+      send_res client_socket res
 
     req_handler = get_handler_for_req app request 
     res = req_handler request
 
-    send_res res
+    send_res client_socket res
 
 
 serve_internal
@@ -96,7 +96,6 @@ serve_internal
     while true do
         client_socket = accept_retrying socket_ref
 
-        // we can neaten up this API for sure
         buffer: Ptr U8 = malloc 65536
         bytes_read = receive client_socket buffer 65536
 
@@ -106,11 +105,11 @@ serve_internal
 
             raw_request = String.from_parts (transmute buffer : Ptr Char) request_length
 
-            request =
-                // TODO: no panic here 
-                parse_request raw_request ~> or_panic "failed to parse http request :("
-
-            handle_request app request client_socket
+            match try (fn () -> parse_request raw_request)
+            | Some request -> handle_request app request client_socket
+            | None ->
+                response = Response Status.BadRequest "Bad Request\n"
+                send_res client_socket response
         else
             free buffer
 
