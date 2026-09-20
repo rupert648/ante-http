@@ -11,6 +11,7 @@ import AnteHttp.Http.Request.Request
 import AnteHttp.Http.Status.Status 
 import AnteHttp.Http.Method.Method, eq_method, hash_method, copy_method
 import AnteHttp.Http.Response.Response, to_bytes
+import AnteHttp.Process.ForkResult, fork, reap_children, process_exit
 
 export App, App.new, add_route, serve
 
@@ -87,6 +88,27 @@ handle_request
     send_res client_socket res
 
 
+serve_client
+  (app: ref App)
+  (client_socket: ref Socket): Unit can IO, Panic =
+    buffer: Ptr U8 = malloc 65536
+    bytes_read = receive client_socket buffer 65536
+
+    if bytes_read > 0 then
+        // TODO: bleh
+        request_length = U32 (Usz (I64 bytes_read))
+
+        raw_request = String.from_parts (transmute buffer : Ptr Char) request_length
+
+        match try (fn () -> parse_request raw_request)
+        | Some request -> handle_request app request client_socket
+        | None ->
+            response = Response Status.BadRequest "Bad Request\n"
+            send_res client_socket response
+    else
+        free buffer
+
+
 serve_internal
   (app: App)
   (port: U16): Unit can IO, Print, Panic, Throw SocketError =
@@ -94,27 +116,22 @@ serve_internal
     socket_ref = ref socket
 
     while true do
+        reap_children ()
         client_socket = accept_retrying socket_ref
 
-        buffer: Ptr U8 = malloc 65536
-        bytes_read = receive client_socket buffer 65536
-
-        if bytes_read > 0 then
-            // TODO: bleh
-            request_length = U32 (Usz (I64 bytes_read))
-
-            raw_request = String.from_parts (transmute buffer : Ptr Char) request_length
-
-            match try (fn () -> parse_request raw_request)
-            | Some request -> handle_request app request client_socket
-            | None ->
-                response = Response Status.BadRequest "Bad Request\n"
-                send_res client_socket response
-        else
-            free buffer
-
-        _ = close client_socket
-        ()
+        match fork ()
+        | Ok (ForkResult.Parent _) ->
+            _ = close client_socket
+            ()
+        | Ok ForkResult.Child ->
+            _ = close socket_ref
+            serve_client (ref app) (ref client_socket)
+            _ = close client_socket
+            process_exit 0
+        | Error _ ->
+            serve_client (ref app) (ref client_socket)
+            _ = close client_socket
+            ()
 
 serve
   (app: App)

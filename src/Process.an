@@ -1,0 +1,32 @@
+export ForkResult, ProcessError, fork, reap_children, process_exit
+
+type ForkResult =
+    | Parent I32
+    | Child
+
+type ProcessError =
+    | ForkFailed I32
+
+c_fork: fn Unit -> I32 can Fs = extern "fork"
+c_waitpid: fn I32 (Ptr I32) I32 -> I32 can Fs = extern "waitpid"
+c_process_exit: fn I32 -> Never can Fs = extern "_exit"
+c_wnohang: fn Unit -> I32 = extern "ante_process_wnohang"
+
+fork (): Result ForkResult ProcessError can Fs =
+    result = c_fork ()
+
+    if result < 0 then
+        Error (ProcessError.ForkFailed result)
+    else if result == 0 then
+        Ok ForkResult.Child
+    else
+        Ok (ForkResult.Parent result)
+
+reap_children (): Unit can Fs =
+    var child_pid = c_waitpid -1 (null ()) (c_wnohang ())
+
+    while child_pid > 0 do
+        child_pid := c_waitpid -1 (null ()) (c_wnohang ())
+
+process_exit (status: I32): Never can Fs =
+    c_process_exit status
