@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout ante-http
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          path: ante-http
+
+      - name: Checkout Ante compiler
+        uses: actions/checkout@v7
+        with:
+          repository: jfecher/ante
+          ref: 5ea245bbcf515a69386990c3cdb5afee33b77b14
+          submodules: recursive
+          path: ante
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Ante
+        working-directory: ante
+        run: cargo build --no-default-features
+
+      - name: Run tests
+        working-directory: ante-http
+        run: make test
