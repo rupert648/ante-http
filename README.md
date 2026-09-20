@@ -1,0 +1,27 @@
+# ante-http
+
+(open to more interesting name ideas)
+
+Barebones synchronous HTTP and routing library for [ante](https://antelang.org/).
+
+## Usage;
+```ante
+import AnteHttp.App.App, new, add_route, serve
+import AnteHttp.Http.Method.Method
+import AnteHttp.Http.Request.Request
+import AnteHttp.Http.Response.Response
+import AnteHttp.Http.Status.Status
+
+index (_request: Request): Response =
+    Response Status.Ok "Hello from Ante!\n"
+
+health (_request: Request): Response =
+    Response Status.Ok "OK\n"
+
+main () =
+    abort_on_panic do
+      App.new ()
+          |> add_route "/" Method.Get index
+          |> add_route "/health" Method.Get health
+          |> serve 8080u16
+```
