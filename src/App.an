@@ -63,10 +63,11 @@ start_server (port: U16): Socket can IO, Print, Throw SocketError =
 
 
 accept_retrying (server_socket: ref Socket): Socket can IO, Print =
-    handler h for throw error ->
-        println error
-        accept_retrying server_socket
+  handle
     accept server_socket
+  | throw error -> 
+    println error
+    accept_retrying server_socket
 
 send_res (client_socket: ref Socket) (res: Response): Unit can IO =
   response_bytes, length = to_bytes res
@@ -77,15 +78,14 @@ handle_request
   (app: ref App)
   (request: Request)
   (client_socket: ref Socket): Unit can IO =
-    
-    handler h for fail () ->
+
+    handle
+      req_handler = get_handler_for_req app request
+      res = req_handler request
+      send_res client_socket res
+    | fail () ->
       res = Response Status.NotFound "Not Found :(("
       send_res client_socket res
-
-    req_handler = get_handler_for_req app request 
-    res = req_handler request
-
-    send_res client_socket res
 
 
 serve_client
